@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <chrono> // for std::chrono functions
 #include "RSA.h"
+#include "base64.h"
 
 class Timer
 {
@@ -32,17 +33,20 @@ int main()
 {
 
 	RSA test;
-	std::string originalMsg = "Some test message to encrypt.";
+	std::string originalMsg = "Another test example with some shit 166450172!@#$%^&*()_+";
 
 	std::string encryptedMsg = test.encrypt(originalMsg);
 
+	//std::cout << "Encrypted message: " << base64_encode(encryptedMsg) << "\n\n";
 	std::cout << "Encrypted message: " << encryptedMsg << "\n\n";
 
 	std::string restoredMsg = test.decrypt(encryptedMsg);
-	std::cout << "Restored message: " << restoredMsg << "\n\n";
+	std::cout << "Restored message:\t" << restoredMsg << "\n";
+	std::cout << "Source message:\t\t" << originalMsg << '\n';
+	std::cout << "Source message size: " << originalMsg.size() << '\n';
+	std::cout << "Restored message size: " << restoredMsg.size() << '\n';
+	std::cout << "Source == restored: " << std::boolalpha << (originalMsg == restoredMsg) << '\n';
 
-
-	//std::cout << test.get_d() << '\n';
 
 	return 0;
 }

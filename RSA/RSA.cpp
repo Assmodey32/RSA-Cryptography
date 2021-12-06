@@ -1,16 +1,12 @@
 ﻿#include "RSA.h"
 #include <boost/integer/mod_inverse.hpp>
+#include <algorithm>
 using namespace boost::multiprecision;
 
 cpp_int RSA::generate_prime_number(size_t bitsLen) const
 {
 	mt11213b base_gen(clock());
 	independent_bits_engine<mt11213b, 1024, cpp_int> gen1024(base_gen);
-
-	//
-	// We must use a different generator for the tests and number generation, otherwise
-	// we get false positives.
-	//
 	mt19937 gen2(clock());
 
 	cpp_int n = gen1024();
@@ -31,7 +27,7 @@ cpp_int RSA::powm(cpp_int base, cpp_int exp, const cpp_int& modulus)
 		if (exp & 1) // if exp is even
 			result = (result * base) % modulus;
 		base = (base * base) % modulus;
-		exp >>= 1; // *2
+		exp >>= 1; // /2
 	}
 	return result;
 }
@@ -57,8 +53,8 @@ cpp_int RSA::extendedGcd(cpp_int a, cpp_int b)
 
 RSA::RSA()
 {
-	p = generate_prime_number(512);
-	q = generate_prime_number(512);
+	p = generate_prime_number(1024);
+	q = generate_prime_number(1024);
 	calculate_n();
 	calculate_phi();
 	calculate_e();
@@ -99,18 +95,9 @@ void RSA::calculate_e()
 
 void RSA::calculate_d()
 {
-	//cpp_int temp = 1;
-
-	//while ((temp * phi_n + 1) % e != 0)
-	//	++temp;
-	//d = (temp * phi_n + 1) / e;
-	//std::clog << "Temp = " << temp << '\n';
-
 	d = RSA::extendedGcd(phi_n, e);
 	if (d < 0)
 		d += phi_n;
-	//std::cout << "d == d2: " << std::boolalpha << (d == d2) << "\n";
-
 }
 
 std::string RSA::encrypt(const std::string& msg) const
@@ -119,12 +106,26 @@ std::string RSA::encrypt(const std::string& msg) const
 
 	std::string result;
 
-	for (auto m : msg)
-	{
-		cpp_int value = RSA::powm(cpp_int(m), e, n);
+	cpp_int block{ 0 };
 
-		result += boost::lexical_cast<std::string>(value) + ' ';
+	for (int i = 0; i < 127; ++i) {
+		if (i < msg.length()) {
+			block += msg[i];
+		}
+
+		if (i != 127 - 1)
+			block <<= 8;
 	}
+
+	//std::cout << "Text block: " << block << '\n';
+
+	//for (auto m : msg)
+	//{
+		//cpp_int value = RSA::powm(cpp_int(m), e, n);
+	cpp_int value = RSA::powm(block, e, n);
+
+	result += boost::lexical_cast<std::string>(value) + '\n';
+	//}
 	return result;
 }
 
@@ -145,11 +146,24 @@ std::string RSA::decrypt(const std::string& msg)
 		cpp_int h = q_inv * (m_1 - m_2);
 		cpp_int mResult = m_2 + h * q;
 
-		char ch = mResult.convert_to<char>();
+		//char ch = mResult.convert_to<char>();
 
-		//result += boost::lexical_cast<std::string>(ch);
-		result += ch;
+		std::string temp;
+
+		std::cout << mResult << '\n';
+
+		for (int i = 0; i < 127; ++i) {
+			cpp_int x = mResult & 0xff;
+			temp += x.convert_to<char>();
+
+			mResult >>= 8;
+		}
+
+		result += temp;
 	}
+
+	result.erase(std::remove(result.begin(), result.end(), '\0'), result.end());
+	std::reverse(result.begin(), result.end());
 
 	return result;
 }
