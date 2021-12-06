@@ -1,0 +1,6 @@
+[submodule "multiprecision"]
+	path = multiprecision
+	url = http://github.com/boostorg/multiprecision.git
+[submodule "math"]
+	path = math
+	url = https://github.com/boostorg/math.git
