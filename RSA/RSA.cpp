@@ -1,6 +1,7 @@
 ﻿#include "RSA.h"
 #include <boost/integer/mod_inverse.hpp>
 #include <algorithm>
+#include <stack>
 using namespace boost::multiprecision;
 
 cpp_int RSA::generate_prime_number(size_t bitsLen) const
@@ -16,6 +17,16 @@ cpp_int RSA::generate_prime_number(size_t bitsLen) const
 	}
 
 	return n;
+}
+
+void RSA::generateKeys()
+{
+	P(generate_prime_number(1024));
+	Q(generate_prime_number(1024));
+	calculate_n();
+	calculate_phi();
+	calculate_e();
+	calculate_d();
 }
 
 cpp_int RSA::powm(cpp_int base, cpp_int exp, const cpp_int& modulus)
@@ -53,32 +64,18 @@ cpp_int RSA::extendedGcd(cpp_int a, cpp_int b)
 
 RSA::RSA()
 {
-	p = generate_prime_number(1024);
-	q = generate_prime_number(1024);
-	calculate_n();
-	calculate_phi();
-	calculate_e();
-	calculate_d();
+	generateKeys();
 }
 
-unsigned RSA::get_e() const
-{
-	return e;
-}
-
-cpp_int RSA::get_d() const
-{
-	return d;
-}
 
 void RSA::calculate_n()
 {
-	n = p * q;
+	setN(P() * q);
 }
 
 void RSA::calculate_phi()
 {
-	phi_n = (p - 1) * (q - 1);
+	phi_n = (P() - 1) * (Q() - 1);
 }
 
 void RSA::calculate_e()
@@ -88,71 +85,72 @@ void RSA::calculate_e()
 	{
 		++temp;
 	}
-	e = temp;
+	setE(temp);
 
 	//assert(e >= phi_n);
 }
 
 void RSA::calculate_d()
 {
-	d = RSA::extendedGcd(phi_n, e);
-	if (d < 0)
-		d += phi_n;
+	setD(RSA::extendedGcd(phi_n, getE()));
+	if (getD() < 0)
+		setD(getD() + phi_n);
 }
 
 std::string RSA::encrypt(const std::string& msg) const
 {
-	//c = (pow(m, e) % n);
-
 	std::string result;
+	std::stack<std::string> stack;
 
-	cpp_int block{ 0 };
+	for (size_t i = 0; i < std::ceil(msg.size() * 1.0 / blockSize); ++i)
+	{
+		cpp_int block{ 0 };
 
-	for (int i = 0; i < 127; ++i) {
-		if (i < msg.length()) {
-			block += msg[i];
+		for (int j = 0; j < blockSize; ++j) {
+			if ((j + i * blockSize) < msg.length()) {
+				block += msg[j + i * blockSize];
+			}
+
+			if (j != blockSize - 1)
+				block <<= 8;
 		}
 
-		if (i != 127 - 1)
-			block <<= 8;
+		cpp_int value = RSA::powm(block, getE(), getN());
+
+		std::string temp = boost::lexical_cast<std::string>(value);
+		stack.push(temp);
 	}
 
-	//std::cout << "Text block: " << block << '\n';
+	while (!stack.empty()) {
+		result += stack.top() + ' ';
+		stack.pop();
+	}
 
-	//for (auto m : msg)
-	//{
-		//cpp_int value = RSA::powm(cpp_int(m), e, n);
-	cpp_int value = RSA::powm(block, e, n);
-
-	result += boost::lexical_cast<std::string>(value) + '\n';
-	//}
 	return result;
 }
 
-std::string RSA::decrypt(const std::string& msg)
+std::string RSA::decrypt(const std::string& msg) const
 {
 	std::stringstream temp_msg(msg);
 	cpp_int m;
 	std::string result;
 
-	cpp_int dp = d % (p - 1);
-	cpp_int dq = d % (q - 1);
+	cpp_int dp = getD() % (P() - 1);
+	cpp_int dq = getD() % (Q() - 1);
 
 	while (temp_msg >> m)
 	{
-		cpp_int m_1 = RSA::powm(m, dp, p);
-		cpp_int m_2 = RSA::powm(m, dq, q);
-		cpp_int q_inv = boost::integer::mod_inverse(q, p);
+		cpp_int m_1 = RSA::powm(m, dp, P());
+		cpp_int m_2 = RSA::powm(m, dq, Q());
+		cpp_int q_inv = boost::integer::mod_inverse(Q(), P());
 		cpp_int h = q_inv * (m_1 - m_2);
-		cpp_int mResult = m_2 + h * q;
-
-		//char ch = mResult.convert_to<char>();
+		cpp_int mResult = m_2 + h * Q();
 
 		std::string temp;
 
 		std::cout << mResult << '\n';
 
-		for (int i = 0; i < 127; ++i) {
+		for (int i = 0; i < blockSize; ++i) {
 			cpp_int x = mResult & 0xff;
 			temp += x.convert_to<char>();
 

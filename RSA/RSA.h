@@ -20,22 +20,39 @@ private:
 	unsigned e; // 2^16+1 <= e < phi_n; e and phi_n coprime
 	cpp_int d; // (e * d) mod phi_n = 1
 
+	size_t blockSize{128};
 
 	void calculate_n();
 	void calculate_phi();
 	void calculate_e();
 	void calculate_d();
-	//void decrypt(cpp_int& value) const;
+
+	
+public:
+	RSA();
+
+	void generateKeys();
 
 	cpp_int generate_prime_number(size_t bitsLen) const;
 	static cpp_int powm(cpp_int base, cpp_int exp, const cpp_int& modulus);
 	static cpp_int extendedGcd(cpp_int a, cpp_int b);
-public:
-	RSA();
-
-	unsigned get_e() const;
-	cpp_int get_d() const;
 
 	std::string encrypt(const std::string& msg) const;
-	std::string decrypt(const std::string& msg);
+	std::string decrypt(const std::string& msg) const;
+
+	cpp_int getD() const { return d; }
+	cpp_int getN() const { return n; }
+	unsigned getE() const { return e; }
+	cpp_int P() const { return p; }
+	cpp_int Q() const { return q; }
+
+
+
+	void setE(unsigned val) { e = val; }
+	void setD(cpp_int val) { d = val; }
+	void setN(cpp_int val) { n = val; }
+	void P(cpp_int val) { p = val; }
+	void Q(cpp_int val) { q = val; }
 };
+
+
